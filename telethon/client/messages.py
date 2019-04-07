@@ -610,7 +610,7 @@ class MessageMethods(UploadMethods, ButtonMethods, MessageParseMethods):
         return self._get_response_message(request, result, entity)
 
     async def forward_messages(self, entity, messages, from_peer=None,
-                               *, silent=None):
+                               *, silent=None, break_media_albums=False):
         """
         Forwards the given message(s) to the specified entity.
 
@@ -631,6 +631,12 @@ class MessageMethods(UploadMethods, ButtonMethods, MessageParseMethods):
                 Whether the message should notify people in a broadcast
                 channel or not. Defaults to ``False``, which means it will
                 notify them. Set it to ``True`` to alter this behaviour.
+
+            break_media_albums (`bool`, optional):
+                Whether the media albums should be separated to
+                single messages or not. Defaults to ``False``, which means
+                its will be grouped as albums like original messages.
+                Set it to ``True`` to force separating.
 
         Returns:
             The list of forwarded `telethon.tl.custom.message.Message`,
@@ -655,28 +661,31 @@ class MessageMethods(UploadMethods, ButtonMethods, MessageParseMethods):
         def get_key(m):
             if isinstance(m, int):
                 if from_peer_id is not None:
-                    return from_peer_id
+                    return from_peer_id, None
 
                 raise ValueError('from_peer must be given if integer IDs are used')
             elif isinstance(m, types.Message):
-                return m.chat_id
+                return m.chat_id, None if break_media_albums else m.grouped_id
             else:
                 raise TypeError('Cannot forward messages of type {}'.format(type(m)))
 
         sent = []
-        for chat_id, group in itertools.groupby(messages, key=get_key):
+        for (chat_id, grouped_id), group in itertools.groupby(messages, key=get_key):
             group = list(group)
             if isinstance(group[0], int):
                 chat = from_peer
+                as_albums = not break_media_albums
             else:
                 chat = await group[0].get_input_chat()
                 group = [m.id for m in group]
+                as_albums = bool(grouped_id)
 
             req = functions.messages.ForwardMessagesRequest(
                 from_peer=chat,
                 id=group,
                 to_peer=entity,
-                silent=silent
+                silent=silent,
+                grouped=as_albums
             )
             result = await self(req)
             sent.extend(self._get_response_message(req, result, entity))
