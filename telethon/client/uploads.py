@@ -4,6 +4,7 @@ import os
 import pathlib
 import re
 from io import BytesIO
+from itertools import zip_longest
 
 from .buttons import ButtonMethods
 from .messageparse import MessageParseMethods
@@ -225,30 +226,34 @@ class UploadMethods(ButtonMethods, MessageParseMethods, UserMethods):
         # we may want to send as an album if all are photo files.
         if utils.is_list_like(file):
             # TODO Fix progress_callback
+            if not utils.is_list_like(caption):
+                caption = (caption,)
+            files_with_captions = zip_longest(file, caption)
             images = []
             if force_document:
-                documents = file
+                documents = list(files_with_captions)
             else:
                 documents = []
-                for x in file:
-                    if utils.is_image(x):
-                        images.append(x)
+                for _file, _caption in files_with_captions:
+                    if utils.is_image(_file):
+                        images.append((_file, _caption))
                     else:
-                        documents.append(x)
+                        documents.append((_file, _caption))
 
             result = []
             while images:
+                files, captions = zip(*images[:10])
                 result += await self._send_album(
-                    entity, images[:10], caption=caption,
+                    entity, files, caption=captions,
                     progress_callback=progress_callback, reply_to=reply_to,
                     parse_mode=parse_mode, silent=silent
                 )
                 images = images[10:]
 
-            for x in documents:
+            for _file, _caption in documents:
                 result.append(await self.send_file(
-                    entity, x, allow_cache=allow_cache,
-                    caption=caption, force_document=force_document,
+                    entity, _file, allow_cache=allow_cache,
+                    caption=_caption, force_document=force_document,
                     progress_callback=progress_callback, reply_to=reply_to,
                     attributes=attributes, thumb=thumb, voice_note=voice_note,
                     video_note=video_note, buttons=buttons, silent=silent,
