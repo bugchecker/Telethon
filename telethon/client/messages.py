@@ -663,33 +663,19 @@ class MessageMethods(UploadMethods, ButtonMethods, MessageParseMethods):
         else:
             from_peer_id = None
 
-        def _get_key(m):
+        def get_key(m):
             if isinstance(m, int):
                 if from_peer_id is not None:
                     return from_peer_id, None
 
                 raise ValueError('from_peer must be given if integer IDs are used')
             elif isinstance(m, types.Message):
-                return m.chat_id, m.grouped_id
+                return m.chat_id, m.grouped_id if grouped is None else None
             else:
                 raise TypeError('Cannot forward messages of type {}'.format(type(m)))
 
-        # We want to group outgoing chunks differently if we are "smart"
-        # about grouping albums.
-        #
-        # Why? We need separate requests for ``grouped=True/False``, so
-        # if we want that behaviour, when we group messages to create the
-        # chunks, we need to consider the grouped ID too. But if we don't
-        # care about that, we don't need to consider it for creating the
-        # chunks, so we can make less requests.
-        if grouped is None:
-            get_key = _get_key
-        else:
-            def get_key(m):
-                return _get_key(m)[0]  # Ignore grouped_id
-
         sent = []
-        for chat_id, group in itertools.groupby(messages, key=get_key):
+        for group_key, group in itertools.groupby(messages, key=get_key):
             group = list(group)
             if isinstance(group[0], int):
                 chat = from_peer
