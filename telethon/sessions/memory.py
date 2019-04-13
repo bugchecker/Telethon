@@ -6,7 +6,8 @@ from ..tl import TLObject
 from ..tl.types import (
     PeerUser, PeerChat, PeerChannel,
     InputPeerUser, InputPeerChat, InputPeerChannel,
-    InputPhoto, InputDocument
+    InputPhoto, InputDocument,
+    updates
 )
 
 
@@ -72,7 +73,14 @@ class MemorySession(Session):
         self._takeout_id = value
 
     def get_update_state(self, entity_id):
-        return self._update_states.get(entity_id, None)
+        initial_state = updates.State(
+            pts=None,
+            qts=0,
+            date=None,
+            seq=0,
+            unread_count=0
+        )
+        return self._update_states.get(entity_id, initial_state)
 
     def set_update_state(self, entity_id, state):
         self._update_states[entity_id] = state
