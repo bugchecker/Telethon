@@ -425,9 +425,24 @@ class EventBuilderDict:
             date = 1
 
         self.client._log[__name__].debug('Getting difference for entities')
-        result = await self.client(functions.updates.GetDifferenceRequest(
-            pts - 1, date, 0
+        pts_debug = '; '.join(f'{k}: {v}' for (k, v) in (
+            ('pts', pts),
+            ('date', str(date)),
+            ('sent', str(datetime.datetime.utcnow()))
         ))
+        try:
+            result = await self.client(functions.updates.GetDifferenceRequest(
+                pts - 1, date, 0
+            ))
+            new_message_ids = ', '.join(str(m.id) for m in result.new_messages)
+            new_chats = ', '.join(str(c.id) for c in result.chats)
+            pts_debug = '; '.join((
+                pts_debug,
+                f'new_message_ids: {new_message_ids}',
+                f'new_chats: {new_chats}',
+            ))
+        finally:
+            print(pts_debug)
 
         if isinstance(result, (types.updates.Difference,
                                types.updates.DifferenceSlice)):
